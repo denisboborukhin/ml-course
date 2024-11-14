@@ -12,7 +12,8 @@ class SimplifiedBaggingRegressor:
         self.indices_list = []
         data_length = len(data)
         for bag in range(self.num_bags):
-            # Your Code Here
+            indices = np.random.choice(data_length, data_length, replace=True)
+            self.indices_list.append(indices)
         
     def fit(self, model_constructor, data, target):
         '''
@@ -32,7 +33,8 @@ class SimplifiedBaggingRegressor:
         self.models_list = []
         for bag in range(self.num_bags):
             model = model_constructor()
-            data_bag, target_bag = # Your Code Here
+            indices = self.indices_list[bag]
+            data_bag, target_bag = data[indices], target[indices]
             self.models_list.append(model.fit(data_bag, target_bag)) # store fitted models here
         if self.oob:
             self.data = data
@@ -42,7 +44,11 @@ class SimplifiedBaggingRegressor:
         '''
         Get average prediction for every object from passed dataset
         '''
-        # Your code here
+        predictions = np.zeros((data.shape[0], self.num_bags))
+        for i, model in enumerate(self.models_list):
+            predictions[:, i] = model.predict(data)
+
+        return np.mean(predictions, axis=1)
     
     def _get_oob_predictions_from_every_model(self):
         '''
@@ -50,7 +56,13 @@ class SimplifiedBaggingRegressor:
         from all models, which have not seen this object during training phase
         '''
         list_of_predictions_lists = [[] for _ in range(len(self.data))]
-        # Your Code Here
+
+        for i in range(len(self.data)):
+            for bag in range(self.num_bags):
+                if i not in self.indices_list[bag]:
+                    model = self.models_list[bag]
+                    prediction = model.predict(self.data[i].reshape(1, -1))
+                    list_of_predictions_lists[i].append(prediction[0])
         
         self.list_of_predictions_lists = np.array(list_of_predictions_lists, dtype=object)
     
@@ -60,7 +72,7 @@ class SimplifiedBaggingRegressor:
         If object has been used in all bags on training phase, return None instead of prediction
         '''
         self._get_oob_predictions_from_every_model()
-        self.oob_predictions = # Your Code Here
+        self.oob_predictions = np.array([np.mean(predictions) for predictions in self.list_of_predictions_lists])
         
         
     def OOB_score(self):
@@ -68,4 +80,6 @@ class SimplifiedBaggingRegressor:
         Compute mean square error for all objects, which have at least one prediction
         '''
         self._get_averaged_oob_predictions()
-        return # Your Code Here
+        valid_predictions = self.oob_predictions[~np.isnan(self.oob_predictions)]
+        valid_target = self.target[~np.isnan(self.oob_predictions)]
+        return np.mean((valid_predictions - valid_target) ** 2)
